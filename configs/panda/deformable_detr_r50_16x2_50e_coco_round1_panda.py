@@ -104,6 +104,19 @@ train_pipeline = [
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
 ]
+val_pipeline = [
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations', with_bbox=True),
+    # 在线裁剪
+    dict(type='GtBoxBasedCrop', crop_size=(3000, 3000)),
+    dict(type='Resize', img_scale=(1500, 1500), keep_ratio=True),
+    dict(type='RandomFlip', flip_ratio=0.5,direction='horizontal'),
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='Pad', size_divisor=1),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
+]
+
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
@@ -128,15 +141,15 @@ data = dict(
             type=dataset_type,
             img_prefix=cur_path + 'data/panda_data/panda_round1_train_202104',
             classes=classes,
-            ann_file=cur_path + 'data/panda_data/panda_round1_coco_full.json',
+            ann_file=cur_path + 'data/panda_data/_train.json',
             pipeline=train_pipeline),
     ],
     val=dict(
         type=dataset_type,
         img_prefix=cur_path + 'data/panda_data/panda_round1_train_202104',
         classes=classes,
-        ann_file=cur_path + 'data/panda_data/panda_round1_coco_full.json',
-        pipeline=train_pipeline),
+        ann_file=cur_path + 'data/panda_data/_val.json',
+        pipeline=val_pipeline),
     test=dict(
         samples_per_gpu=2,
         type=dataset_type,
@@ -145,7 +158,7 @@ data = dict(
         ann_file=cur_path + 'data/panda_data/panda_round1_coco_full_patches_wh_3000_3000_testA.json',
         pipeline=test_pipeline))
 
-evaluation = dict(interval=120, metric='bbox', classwise=True)
+evaluation = dict(interval=1, metric='', save_best='auto')
 
 optimizer = dict(
     type='AdamW',
@@ -180,5 +193,5 @@ log_level = 'INFO'
 # We can use the pre-trained Cascade RCNN model to obtain higher performance
 load_from = cur_path + 'checkpoints/deformable_detr_r50_16x2_50e_coco.pth'
 resume_from = None
-workflow = [('train', 1)]
+workflow = [('train', 2), ('val', 1)]
 
