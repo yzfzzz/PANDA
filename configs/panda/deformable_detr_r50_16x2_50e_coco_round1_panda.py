@@ -80,7 +80,11 @@ model = dict(
                 iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0))
         ),
         test_cfg = dict(
+            score_thr=0.05,
+            nms=dict(type='nms', iou_threshold=0.5),
+            # nms=dict(type='soft_nms', iou_threshold=0.5),
             max_per_img=100,
+            min_bbox_size=0
             )
 )
 
@@ -109,12 +113,19 @@ val_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     # 在线裁剪
     dict(type='GtBoxBasedCrop', crop_size=(3000, 3000)),
-    dict(type='Resize', img_scale=(1500, 1500), keep_ratio=True),
-    dict(type='RandomFlip', flip_ratio=0.5,direction='horizontal'),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='Pad', size_divisor=1),
-    dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
+    dict(
+        type='MultiScaleFlipAug',
+        img_scale=(1500, 1500),
+        flip=False,
+        flip_direction=['horizontal'],
+        transforms=[
+            dict(type='Resize', keep_ratio=True),
+            dict(type='RandomFlip'),
+            dict(type='Normalize', **img_norm_cfg),
+            dict(type='Pad', size_divisor=32),
+            dict(type='ImageToTensor', keys=['img']),
+            dict(type='Collect', keys=['img'])
+        ])
 ]
 
 test_pipeline = [
@@ -123,6 +134,7 @@ test_pipeline = [
         type='MultiScaleFlipAug',
         img_scale=(1500, 1500),
         flip=False,
+        flip_direction=['horizontal'],
         transforms=[
             dict(type='Resize', keep_ratio=True),
             dict(type='RandomFlip'),
@@ -171,27 +183,23 @@ optimizer = dict(
             'reference_points': dict(lr_mult=0.1)
         }))
 optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
-# learning policy
+
 lr_config = dict(policy='step', step=[40])
 runner = dict(type='EpochBasedRunner', max_epochs=120)
 total_epochs = 120
-# NOTE: `auto_scale_lr` is for automatically scaling LR,
-# USER SHOULD NOT CHANGE ITS VALUES.
-# base_batch_size = (16 GPUs) x (2 samples per GPU)
-auto_scale_lr = dict(base_batch_size=32)
 checkpoint_config = dict(interval=10)
-# yapf:disable
+
 log_config = dict(
-    interval=2,
+    interval=1,
     hooks=[
-        #dict(type='TextLoggerHook'),
+        dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
     ])
-# yapf:enable
+
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-# We can use the pre-trained Cascade RCNN model to obtain higher performance
+
 load_from = cur_path + 'checkpoints/deformable_detr_r50_16x2_50e_coco.pth'
 resume_from = None
-workflow = [('train', 2), ('val', 1)]
+workflow = [('train', 1), ('val', 1)]
 
