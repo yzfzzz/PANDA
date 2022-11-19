@@ -48,7 +48,7 @@ model = dict(
                 in_channels=256,
                 fc_out_channels=1024,
                 roi_feat_size=7,
-                num_classes=4,
+                num_classes=2,
                 bbox_coder=dict(
                     type='DeltaXYWHBBoxCoder',
                     target_means=[0., 0., 0., 0.],
@@ -65,7 +65,7 @@ model = dict(
                 in_channels=256,
                 fc_out_channels=1024,
                 roi_feat_size=7,
-                num_classes=4,
+                num_classes=2,
                 bbox_coder=dict(
                     type='DeltaXYWHBBoxCoder',
                     target_means=[0., 0., 0., 0.],
@@ -82,7 +82,7 @@ model = dict(
                 in_channels=256,
                 fc_out_channels=1024,
                 roi_feat_size=7,
-                num_classes=4,
+                num_classes=2,
                 bbox_coder=dict(
                     type='DeltaXYWHBBoxCoder',
                     target_means=[0., 0., 0., 0.],
@@ -251,7 +251,7 @@ data = dict(
         ann_file=cur_path + 'data/panda_data/panda_round1_coco_full.json',
         pipeline=train_pipeline),
     test=dict(
-        samples_per_gpu=4,
+        samples_per_gpu=5,
         type=dataset_type,
         img_prefix=cur_path + 'data/panda_data/panda_round1_test_202104_A_patches_3000_3000',
         classes=classes,
@@ -261,7 +261,7 @@ data = dict(
 evaluation = dict(interval=120, metric='bbox', classwise=True)
 
 # optimizer
-optimizer = dict(type='SGD', lr=0.05, momentum=0.9, weight_decay=0.0001)    #0.01--4gpus*2imgs/gpu
+optimizer = dict(type='SGD', lr=0.00625, momentum=0.9, weight_decay=0.0001)    #0.01--4gpus*2imgs/gpu
 optimizer_config = dict(grad_clip=None)
 # learning policy
 lr_config = dict(
@@ -275,10 +275,10 @@ total_epochs = 120
 checkpoint_config = dict(interval=10)
 # yapf:disable
 log_config = dict(
-    interval=40,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
+        dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 dist_params = dict(backend='nccl')
