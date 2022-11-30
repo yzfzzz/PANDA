@@ -1,119 +1,55 @@
-# 更新日志2022.11.20
+# 更新日志2022.11.27
 
-## 实验条件
+## 超参数
 
-- 每一个模型均采用resnet50为主干网络，均在COCO数据集上进行训练
-
-- 最大训练epoch=120，batch_size不尽相同，取决于显存大小
-
-- 优化器基本相似
-
-  ```python
-  optimizer = dict(type='SGD', lr=0.025, momentum=0.9, weight_decay=0.0001)
-  ```
-
-- 学习率调整策略均相同，在第80个epoch、第110个epoch学习率均下调
-
-  ```python
-  lr_config = dict(
-      policy='step',
-      warmup='linear',
-      warmup_iters=500,
-      warmup_ratio=0.001,
-      step=[80, 110])
-  ```
-
-​		![image-20221119170455289](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221119170455289.png)
-
-- 因未设验证集，推理阶段，均采用最后一轮模型（第120epoch）测试
-
-## 实验结果
-
-| 模型                                 | AP       | AR@500     | score     | COCO-boxAP | 日期  | 备注           |
-| ------------------------------------ | -------- | ---------- | --------- | ---------- | ----- | -------------- |
-| cascade_rcnn_r50_fpn_1x_coco         | ==0.48== | 0.5705     | ==0.521== | 40.3       | 10.30 | baseline       |
-| cascade_rcnn_X-101-64x4d_FPN_1x_coco | 0.41     | 0.5242     | 0.461     | ==44.7==   | 11.04 |                |
-| deformable_detr_r50_16x2_50e_coco    | 0.34     | 0.5314     | 0.418     | 44.5       | 11.07 |                |
-| tood_r50_fpn_1x_coco                 | 0.46     | ==0.5720== | 0.511     | 42.4       | 11.18 | 2021SOTA       |
-| vfnet_r50_fpn_1x_coco                | 0.44     | 0.5502     | 0.489     | 41.6       | 11.19 | 2021SOTA       |
-| ddod_r50_fpn_1x_coco                 | 0.46     | 0.5587     | 0.503     | 41.7       | 11.19 | 2021SOTA       |
-| sparse_rcnn_r50_fpn_1x_coco          | ×        | ×          | ×         | 37.9       | 11.20 | 代码可能有问题 |
-
-## 训练过程
-
-tood、ddod、vfnet的学习率策略
-
-**==因为每次的batch_size/GPU数量不同，每次丢给GPU的图片数量不同，故x轴不匹配。但它们训练的总样本是相同的，epoch也是一致的==**
-
-![image-20221120211332016](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221120211332016.png)
-
-损失变化
-
-![image-20221120211717893](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221120211717893.png)
+使用mmdection官方推荐的超参数后，实验结果基本和原来的基本一样，训练过程中的损失函数等曲线也基本相同，故可以排除超参数的问题
 
 
 
-**有问题的sparse_rcnn_r50_fpn_1x_coco**
+## 数据预处理
 
-![image-20221120211803480](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221120211803480.png)
-
-![image-20221120211901729](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221120211901729.png)
-
-![image-20221120211933244](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221120211933244.png)
-
-![image-20221120212057577](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221120212057577.png)
+暂未正式开始，不过阿里天池上有个top方案，只是用水平翻转、多尺度输入这两种而已
 
 
 
-## 更新日志
+## 验证集、evaluation
 
-- [x] 复现baseline(10.30)
-- [x] 撰写baseline复现文档(11.1)
-- [x] 划分验证集、测试集(11.7)
-- [ ] 根据官方要求设置测试指标
-- [ ] 测试`deformable_detr_r50_16x2_50e`模型，**使之达到最优效果**
-- [x] 测试`cascade_rcnn_X-101-64x4d_FPN`(11.11)
-- [x] 测试`tood_r50_fpn_1x_coco`(11.18)
-- [x] 测试`vfnet_r50_fpn_1x_coco`(11.19)
-- [x] 测试`ddod_r50_fpn_1x_coco`(11.19)
+在mmdection中，验证集评估的流程：
 
-## 遇到的问题
+- 首先使用 对`single_img_test`函数对数据集进行推理
+- 然后得出结果，写进一个列表results中。这个过程也就是test的过程
+- 然后，将results和验证集标签注释的json文件比较，得出相应的指标
 
-### 1.SOTA模型不佳
+### 在线裁剪
 
-如上图所示，在差不多相同的训练流程下，SOTA模型和baseline表现相近。可能有以下原因：
+但在之前的处理中，我们使用的是在线裁剪：
 
-- 训练轮数少，baseline已经拟合但SOTA未拟合
-- 可能SOTA在120轮之前已经拟合了，但随着训练轮数的增加，SOTA过拟合，最终我们未能选择表现最佳的SOTA模型
-- 可能训练策略不对，比如在一些模型原代码的优化器选择AdamW，而我为了公平改成了SGD
+- 输入一张图片
 
-### 2.workflow、evaluation的区别？
+- 在这张图片中随机裁剪一块3000*3000的图片
 
-在mmdection的config文件中，workflow、evaluation的区别
+- 将这张图片输入到网络中训练
 
-- ```python
-  workflow = [('train', 1),('val',1)]
-  ```
+  在线裁剪如下图：
 
-- ```python
-  evaluation = dict(interval=120, metric='bbox', classwise=True)
-  ```
+  ![image-20221127174359279](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221127174359279.png)
 
-是不是第一个（workflow）是设置训练一轮，验证一轮；而第二个（evaluation）是在测试集上进行推理，然后选择bbox最高的模型保存吗？
+所以，实际上训练的时候，每一个epoch只训练了390（13个场景，每个场景30张千亿像素级照片）张经随机裁剪后的3000*3000的图片
 
-### 3.是否需要写一个评价指标？
+但原来验证集json文件便无法发挥作用了，物体的位置被改变了，而`test_pipeline`又不能使用`dict(type='LoadAnnotations', with_bbox=True)`，所以就出现上周所说的不能使用验证集的问题
 
-mmdection中仅有mAP、bbox、AR@100、AR@300、AR@1000等评价指标。而我们的比赛需要：
-$$
-\text { Score }=\frac{2 \cdot \mathrm{AP} \cdot \mathrm{AR} \max ^{2}=500}{\mathrm{AP}+\mathrm{AR} \max ^{2}=500}{\color{Red} {\large } } 
-$$
-是否需要自己写一个Score的评价指标？
+### 离线裁剪
 
+故我首先对数据进行一个离线裁剪，并将裁剪后的图片、相应图片的json保存在文件夹中。然后，再进行训练。
 
+![image-20221127180126548](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221127180126548.png)
 
+新的训练流程如下：
 
+![image-20221127180435637](https://yzfzzz.oss-cn-shenzhen.aliyuncs.com/image/image-20221127180435637.png)
 
+这也是测试推理的过程，只不过最后的测试还需要将各个patch的预测结果，整合成一张图片的结果，最后提交官网
 
+故，我们最后每一个epoch的照片，约有25000张3000*3000的图片
 
-
-
+#### 因此，目前我使用了离线裁剪方案，划定验证集、训练集，然后使用了`IterBasedRunner`的方式训练，重新跑几个SOTA，看看验证集的评估指标怎么样
